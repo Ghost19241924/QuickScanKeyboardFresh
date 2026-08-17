@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.parshwnath.quickscankeyboard"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.parshwnath.quickscankeyboard"
@@ -47,3 +47,7 @@ dependencies {
     // Bundled model: works immediately after install and supports auto-zoom.
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }
+
+
+
+

@@ -16,3 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "QuickScanKeyboard"
 include(":app")
+
+
+
+
