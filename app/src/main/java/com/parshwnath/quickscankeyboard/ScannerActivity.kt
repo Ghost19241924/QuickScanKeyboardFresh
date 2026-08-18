@@ -1,6 +1,7 @@
 package com.parshwnath.quickscankeyboard
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -376,18 +377,51 @@ class ScannerActivity : ComponentActivity() {
             ?.sendScanResult(value)
 
         /*
-         * Give the remote application a short moment to consume
-         * the keystrokes and Enter event, then automatically
-         * close the scanner and return to whatever app (AnyDesk)
-         * was open before — no manual "CLOSE" tap needed.
+         * Give the remote application real time to receive and
+         * render the keystrokes and Enter event over the network
+         * before we do anything else.
+         *
+         * 180ms (the old value) was tuned for a LOCAL Android text
+         * field, where input lands instantly. AnyDesk has to send
+         * each keystroke to the remote Windows PC and wait for it
+         * to register there — that takes noticeably longer, and
+         * switching focus away too early can cut the transmission
+         * off mid-flight. 900ms gives it real breathing room.
          */
         mainHandler.postDelayed({
 
             if (!isFinishing) {
-                finish()
+                returnToAnyDesk()
             }
 
-        }, 180L)
+        }, 900L)
+    }
+
+    /**
+     * Explicitly brings AnyDesk back to the foreground, then closes
+     * the scanner.
+     *
+     * Why not just finish()? This Activity was opened with
+     * FLAG_ACTIVITY_NEW_TASK (required because the keyboard Service
+     * has to launch it), which puts it in its own separate task from
+     * AnyDesk's task. Plain finish() then leaves Android to guess
+     * what to show next — and it was landing on the phone's home
+     * screen / app drawer instead of AnyDesk. Explicitly relaunching
+     * AnyDesk's own task removes that guesswork.
+     */
+    private fun returnToAnyDesk() {
+        val anyDeskIntent = packageManager
+            .getLaunchIntentForPackage("com.anydesk.anydeskandroid")
+
+        if (anyDeskIntent != null) {
+            anyDeskIntent.addFlags(
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+            )
+            startActivity(anyDeskIntent)
+        }
+
+        finish()
     }
 
     private fun toggleTorch() {
