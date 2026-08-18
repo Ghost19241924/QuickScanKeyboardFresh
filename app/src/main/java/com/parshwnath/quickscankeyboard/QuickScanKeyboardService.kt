@@ -5,7 +5,6 @@ import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.InputConnection
@@ -59,42 +58,48 @@ class QuickScanKeyboardService : InputMethodService() {
     fun sendScanResult(value: String) {
         val clean = value.trim()
         if (clean.isEmpty()) return
-        if (currentInputConnection == null) return
+        val ic = currentInputConnection ?: return
 
-        // 1. Commit text first to guarantee string injection into AnyDesk
-        currentInputConnection?.commitText(clean, 1)
+        // Send digits as raw hardware key events for AnyDesk
+        sendHardwareString(ic, clean)
 
-        // 2. Type text key events for physical keyboard emulation
-        typeText(clean)
-
-        // 3. Post a short delay (150ms) before sending Enter so AnyDesk can sync the buffer
+        // Wait 200ms for AnyDesk buffer to register characters, then send ENTER
         Handler(Looper.getMainLooper()).postDelayed({
             sendEnter()
-        }, 150)
+        }, 200)
     }
 
-    private fun typeText(text: String) {
-        val ic: InputConnection = currentInputConnection ?: return
-        val keyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
-        val events = keyCharacterMap.getEvents(text.toCharArray())
-        if (events != null) {
-            for (event in events) {
-                ic.sendKeyEvent(event)
+    private fun sendHardwareString(ic: InputConnection, text: String) {
+        for (char in text) {
+            val keyCode = when (char) {
+                '0' -> KeyEvent.KEYCODE_0
+                '1' -> KeyEvent.KEYCODE_1
+                '2' -> KeyEvent.KEYCODE_2
+                '3' -> KeyEvent.KEYCODE_3
+                '4' -> KeyEvent.KEYCODE_4
+                '5' -> KeyEvent.KEYCODE_5
+                '6' -> KeyEvent.KEYCODE_6
+                '7' -> KeyEvent.KEYCODE_7
+                '8' -> KeyEvent.KEYCODE_8
+                '9' -> KeyEvent.KEYCODE_9
+                else -> -1
+            }
+
+            if (keyCode != -1) {
+                val time = System.currentTimeMillis()
+                ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, keyCode, 0))
+                ic.sendKeyEvent(KeyEvent(time, time + 5, KeyEvent.ACTION_UP, keyCode, 0))
+            } else {
+                // Fallback for non-numeric characters
+                ic.commitText(char.toString(), 1)
             }
         }
     }
 
     fun sendEnter() {
         val ic = currentInputConnection ?: return
-        val eventTime = System.currentTimeMillis()
-        
-        // Key Down
-        ic.sendKeyEvent(
-            KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, 0)
-        )
-        // Key Up
-        ic.sendKeyEvent(
-            KeyEvent(eventTime, System.currentTimeMillis() + 10, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, 0)
-        )
+        val time = System.currentTimeMillis()
+        ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0))
+        ic.sendKeyEvent(KeyEvent(time, time + 10, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0))
     }
 }
