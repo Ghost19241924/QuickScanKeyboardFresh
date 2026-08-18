@@ -3,6 +3,8 @@ package com.parshwnath.quickscankeyboard
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
@@ -39,14 +41,6 @@ class QuickScanKeyboardService : InputMethodService() {
         return view
     }
 
-    /**
-     * Switches back to whatever keyboard (Gboard etc.) was active
-     * before QuickScan Keyboard, so the user can type normally again.
-     *
-     * On Android 9+ this is a direct one-tap switch. On older versions
-     * (down to our minSdk 23) that API doesn't exist, so we fall back
-     * to the system's keyboard-picker dialog instead.
-     */
     private fun switchToPreviousKeyboard() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             switchToPreviousInputMethod()
@@ -66,23 +60,19 @@ class QuickScanKeyboardService : InputMethodService() {
         val clean = value.trim()
         if (clean.isEmpty()) return
         if (currentInputConnection == null) return
+
+        // 1. Commit text first to guarantee string injection into AnyDesk
+        currentInputConnection?.commitText(clean, 1)
+
+        // 2. Type text key events for physical keyboard emulation
         typeText(clean)
-        sendEnter()
+
+        // 3. Post a short delay (150ms) before sending Enter so AnyDesk can sync the buffer
+        Handler(Looper.getMainLooper()).postDelayed({
+            sendEnter()
+        }, 150)
     }
 
-    /**
-     * Types text as real synthetic key-press events instead of
-     * InputConnection.commitText().
-     *
-     * Why: commitText() only works when the focused field is a genuine
-     * local Android EditText that this IME is connected to. AnyDesk's
-     * remote-desktop field isn't that — it's a streamed picture of the
-     * Windows screen, and AnyDesk forwards raw keystrokes to it, the
-     * same way a physical keyboard would. commitText() has nothing to
-     * write into there, so it silently does nothing. Sending actual
-     * KeyEvents (exactly like sendEnter() already does for Enter) is
-     * what actually reaches the remote PC.
-     */
     private fun typeText(text: String) {
         val ic: InputConnection = currentInputConnection ?: return
         val keyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
@@ -91,17 +81,20 @@ class QuickScanKeyboardService : InputMethodService() {
             for (event in events) {
                 ic.sendKeyEvent(event)
             }
-        } else {
-            // Rare fallback: a character couldn't be mapped to a key event.
-            // Better to still deliver something than silently drop it.
-            ic.commitText(text, 1)
         }
     }
 
     fun sendEnter() {
         val ic = currentInputConnection ?: return
         val eventTime = System.currentTimeMillis()
-        ic.sendKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0))
-        ic.sendKeyEvent(KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0))
+        
+        // Key Down
+        ic.sendKeyEvent(
+            KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, 0)
+        )
+        // Key Up
+        ic.sendKeyEvent(
+            KeyEvent(eventTime, System.currentTimeMillis() + 10, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, 0)
+        )
     }
 }
