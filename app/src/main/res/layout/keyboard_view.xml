@@ -3,22 +3,36 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="#202124"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:padding="8dp">
 
-    <Button
-        android:id="@+id/scanButton"
-        android:layout_width="0dp"
-        android:layout_height="58dp"
-        android:layout_weight="1"
-        android:text="SCAN QR"
-        android:textSize="18sp"
-        android:textStyle="bold" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/scanButton"
+            android:layout_width="0dp"
+            android:layout_height="58dp"
+            android:layout_weight="1"
+            android:text="SCAN QR"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/enterButton"
+            android:layout_width="100dp"
+            android:layout_height="58dp"
+            android:layout_marginStart="8dp"
+            android:text="ENTER" />
+    </LinearLayout>
 
     <Button
-        android:id="@+id/enterButton"
-        android:layout_width="100dp"
-        android:layout_height="58dp"
-        android:layout_marginStart="8dp"
-        android:text="ENTER" />
+        android:id="@+id/switchKeyboardButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="🌐 Normal Keyboard"
+        android:textSize="14sp" />
 </LinearLayout>
