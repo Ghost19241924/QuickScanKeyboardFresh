@@ -41,8 +41,14 @@ class ScannerActivity : ComponentActivity() {
 
     private var camera: Camera? = null
     private var torchOn = false
-    private var lastValue = ""
-    private var lastScanAt = 0L
+
+    /**
+     * True once a barcode has been successfully decoded and sent.
+     * The camera analyzer runs continuously on a background thread,
+     * so without this flag it can fire handleDecoded() again for the
+     * same barcode while we're still in the process of finishing.
+     */
+    private var handled = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -332,24 +338,17 @@ class ScannerActivity : ComponentActivity() {
         value: String
     ) {
 
-        val now =
-            System.currentTimeMillis()
-
         /*
-         * Prevent the same QR from being sent
-         * repeatedly while it remains in view.
-         *
-         * 900 ms protection window.
+         * Single-shot scanning: once we've successfully handled
+         * one barcode, ignore any further frames. Without this,
+         * the background analyzer can keep calling handleDecoded()
+         * for a few more frames while we're in the middle of
+         * finishing this Activity.
          */
-        if (
-            value == lastValue &&
-            now - lastScanAt < 900L
-        ) {
+        if (handled) {
             return
         }
-
-        lastValue = value
-        lastScanAt = now
+        handled = true
 
         /*
          * Beep.
@@ -377,15 +376,15 @@ class ScannerActivity : ComponentActivity() {
             ?.sendScanResult(value)
 
         /*
-         * Give the remote application a short moment
-         * to consume the Enter event.
-         *
-         * Then immediately prepare for the next product.
+         * Give the remote application a short moment to consume
+         * the keystrokes and Enter event, then automatically
+         * close the scanner and return to whatever app (AnyDesk)
+         * was open before — no manual "CLOSE" tap needed.
          */
         mainHandler.postDelayed({
 
             if (!isFinishing) {
-                status.text = "READY — next QR"
+                finish()
             }
 
         }, 180L)
